@@ -1,0 +1,593 @@
+<!DOCTYPE html><html lang="en"><head><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                    }
+                }
+            },
+            darkMode: 'class'
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/js-sha256@0.9.0/src/sha256.min.js"></script>
+</head>
+<body class="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen">
+    <!-- Dark mode detection -->
+    <script>
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+    </script>
+    
+    <div class="container mx-auto p-4 max-w-4xl">
+        <h1 class="text-3xl font-bold text-center mb-8 text-primary">Menu Manager</h1>
+        
+        <!-- Login Section -->
+        <div id="loginSection" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4">Login to Menu Manager</h2>
+            <div class="space-y-4">
+                <div>
+                    <label for="username" class="block mb-1">Username</label>
+                    <input type="text" id="username" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-base" placeholder="Username">
+                </div>
+                <div>
+                    <label for="password" class="block mb-1">Password</label>
+                    <input type="password" id="password" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-base" placeholder="Password">
+                </div>
+                <div class="flex justify-between items-center">
+                    <button id="loginBtn" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded">Login</button>
+                    <button id="registerBtn" class="text-primary hover:underline">Register Instead</button>
+                </div>
+                <div id="loginMessage" class="text-red-500 mt-2 hidden"></div>
+            </div>
+        </div>
+        
+        <!-- GitHub Config Section (Initially Hidden) -->
+        <div id="githubSection" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8 hidden">
+            <h2 class="text-xl font-semibold mb-4">GitHub Configuration</h2>
+            <div class="space-y-4">
+                <div>
+                    <label for="repoOwner" class="block mb-1">Repository Owner</label>
+                    <input type="text" id="repoOwner" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-base" placeholder="e.g., yourusername">
+                </div>
+                <div>
+                    <label for="repoName" class="block mb-1">Repository Name</label>
+                    <input type="text" id="repoName" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-base" placeholder="e.g., menu-data">
+                </div>
+                <div>
+                    <label for="filePath" class="block mb-1">File Path</label>
+                    <input type="text" id="filePath" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-base" placeholder="e.g., menus.json">
+                </div>
+                <div>
+                    <label for="accessToken" class="block mb-1">Personal Access Token (for saving)</label>
+                    <input type="password" id="accessToken" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-base" placeholder="Your GitHub Personal Access Token">
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">This is needed to save changes back to GitHub.</p>
+                </div>
+                <div class="flex space-x-3">
+                    <button id="loadFromGithubBtn" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded">Load Data</button>
+                    <button id="saveToGithubBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">Save Data</button>
+                </div>
+                <div id="githubMessage" class="mt-2 hidden"></div>
+            </div>
+        </div>
+        
+        <!-- Menu Management Section (Initially Hidden) -->
+        <div id="menuSection" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8 hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold">Manage Menus</h2>
+                <button id="addMenuBtn" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded">Add Menu</button>
+            </div>
+            
+            <!-- Menu List -->
+            <div id="menuList" class="space-y-4 mt-4">
+                <!-- Menu items will be populated here dynamically -->
+            </div>
+            
+            <!-- No Menus Message -->
+            <div id="noMenusMessage" class="text-center py-6 text-gray-500 dark:text-gray-400 hidden">
+                No menus have been added yet. Use the "Add Menu" button to create your first menu.
+            </div>
+        </div>
+        
+        <!-- Add/Edit Menu Modal -->
+        <div id="menuModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">
+                <h3 id="modalTitle" class="text-xl font-semibold mb-4">Add Menu</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label for="menuName" class="block mb-1">Menu Name</label>
+                        <input type="text" id="menuName" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-base" placeholder="Name">
+                    </div>
+                    <div>
+                        <label for="menuLink" class="block mb-1">Menu Link</label>
+                        <input type="text" id="menuLink" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-base" placeholder="https://example.com">
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button id="cancelMenuBtn" class="bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-700 text-gray-800 dark:text-white px-4 py-2 rounded">Cancel</button>
+                        <button id="saveMenuBtn" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log Out Button -->
+        <div id="logoutSection" class="text-right mt-4 hidden">
+            <button id="logoutBtn" class="text-primary hover:underline">Log Out</button>
+        </div>
+    </div>
+
+    <script>
+        // Application state
+        const appState = {
+            users: [
+                // Default admin user - would be loaded from GitHub in a real app
+                { username: 'admin', passwordHash: '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918' } // admin
+            ],
+            menus: [],
+            currentUser: null,
+            editingMenuIndex: -1,
+            githubConfig: {
+                owner: '',
+                repo: '',
+                path: '',
+                token: ''
+            }
+        };
+
+        // DOM Elements
+        const elements = {
+            loginSection: document.getElementById('loginSection'),
+            githubSection: document.getElementById('githubSection'),
+            menuSection: document.getElementById('menuSection'),
+            logoutSection: document.getElementById('logoutSection'),
+            menuModal: document.getElementById('menuModal'),
+            menuList: document.getElementById('menuList'),
+            noMenusMessage: document.getElementById('noMenusMessage'),
+            loginMessage: document.getElementById('loginMessage'),
+            githubMessage: document.getElementById('githubMessage'),
+            modalTitle: document.getElementById('modalTitle')
+        };
+
+        // Initialize the app
+        function initApp() {
+            // Check for saved data in localStorage
+            loadAppState();
+            
+            // Set up event listeners
+            setupEventListeners();
+            
+            // Update UI based on current state
+            updateUI();
+        }
+
+        // Load app state from localStorage
+        function loadAppState() {
+            try {
+                const savedState = localStorage.getItem('menuManagerState');
+                if (savedState) {
+                    const parsedState = JSON.parse(savedState);
+                    
+                    // Only restore non-sensitive data from localStorage
+                    appState.currentUser = parsedState.currentUser;
+                    appState.githubConfig = parsedState.githubConfig || {
+                        owner: '',
+                        repo: '',
+                        path: '',
+                        token: ''
+                    };
+                    
+                    // Don't restore the token from localStorage for security
+                    appState.githubConfig.token = '';
+                }
+            } catch (error) {
+                console.error('Error loading saved state:', error);
+            }
+        }
+
+        // Save app state to localStorage
+        function saveAppState() {
+            try {
+                // Store current state excluding sensitive data
+                const stateToSave = {
+                    currentUser: appState.currentUser,
+                    githubConfig: {
+                        ...appState.githubConfig,
+                        token: '' // Don't save the token
+                    }
+                };
+                
+                localStorage.setItem('menuManagerState', JSON.stringify(stateToSave));
+            } catch (error) {
+                console.error('Error saving state:', error);
+            }
+        }
+
+        // Update UI based on current state
+        function updateUI() {
+            // Show/hide sections based on login state
+            elements.loginSection.classList.toggle('hidden', !!appState.currentUser);
+            elements.githubSection.classList.toggle('hidden', !appState.currentUser);
+            elements.menuSection.classList.toggle('hidden', !appState.currentUser);
+            elements.logoutSection.classList.toggle('hidden', !appState.currentUser);
+            
+            // Update menu list
+            renderMenuList();
+        }
+
+        // Render the menu list
+        function renderMenuList() {
+            const menuList = document.getElementById('menuList');
+            menuList.innerHTML = '';
+            
+            if (appState.menus.length === 0) {
+                elements.noMenusMessage.classList.remove('hidden');
+                return;
+            }
+            
+            elements.noMenusMessage.classList.add('hidden');
+            
+            appState.menus.forEach((menu, index) => {
+                const menuItem = document.createElement('div');
+                menuItem.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded flex flex-col sm:flex-row sm:items-center justify-between';
+                
+                const menuInfo = document.createElement('div');
+                menuInfo.className = 'mb-3 sm:mb-0';
+                
+                const menuName = document.createElement('h3');
+                menuName.className = 'font-medium';
+                menuName.textContent = menu.name;
+                
+                const menuLink = document.createElement('a');
+                menuLink.href = menu.link;
+                menuLink.target = '_blank';
+                menuLink.className = 'text-primary hover:underline text-sm';
+                menuLink.textContent = menu.link;
+                
+                menuInfo.appendChild(menuName);
+                menuInfo.appendChild(menuLink);
+                
+                const menuActions = document.createElement('div');
+                menuActions.className = 'flex space-x-2';
+                
+                const editButton = document.createElement('button');
+                editButton.className = 'bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm';
+                editButton.textContent = 'Edit';
+                editButton.addEventListener('click', () => editMenu(index));
+                
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm';
+                deleteButton.textContent = 'Delete';
+                deleteButton.addEventListener('click', () => deleteMenu(index));
+                
+                menuActions.appendChild(editButton);
+                menuActions.appendChild(deleteButton);
+                
+                menuItem.appendChild(menuInfo);
+                menuItem.appendChild(menuActions);
+                
+                menuList.appendChild(menuItem);
+            });
+        }
+
+        // Setup event listeners for all interactive elements
+        function setupEventListeners() {
+            // Login functionality
+            document.getElementById('loginBtn').addEventListener('click', handleLogin);
+            document.getElementById('registerBtn').addEventListener('click', toggleRegisterMode);
+            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+            
+            // Menu management
+            document.getElementById('addMenuBtn').addEventListener('click', showAddMenuModal);
+            document.getElementById('cancelMenuBtn').addEventListener('click', hideMenuModal);
+            document.getElementById('saveMenuBtn').addEventListener('click', saveMenu);
+            
+            // GitHub integration
+            document.getElementById('loadFromGithubBtn').addEventListener('click', loadFromGithub);
+            document.getElementById('saveToGithubBtn').addEventListener('click', saveToGithub);
+        }
+
+        // Toggle between login and register mode
+        function toggleRegisterMode() {
+            const loginBtn = document.getElementById('loginBtn');
+            const registerBtn = document.getElementById('registerBtn');
+            
+            if (loginBtn.textContent === 'Login') {
+                loginBtn.textContent = 'Register';
+                registerBtn.textContent = 'Login Instead';
+            } else {
+                loginBtn.textContent = 'Login';
+                registerBtn.textContent = 'Register Instead';
+            }
+        }
+
+        // Handle login or registration
+        function handleLogin() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const isRegisterMode = document.getElementById('loginBtn').textContent === 'Register';
+            
+            if (!username || !password) {
+                showLoginMessage('Please enter both username and password.', 'error');
+                return;
+            }
+            
+            // Hash the password
+            const passwordHash = sha256(password);
+            
+            if (isRegisterMode) {
+                // Check if username already exists
+                if (appState.users.some(user => user.username === username)) {
+                    showLoginMessage('Username already exists. Please choose another.', 'error');
+                    return;
+                }
+                
+                // Add new user
+                appState.users.push({ username, passwordHash });
+                showLoginMessage('Registration successful! You can now log in.', 'success');
+                toggleRegisterMode(); // Switch back to login mode
+            } else {
+                // Check credentials
+                const user = appState.users.find(user => 
+                    user.username === username && user.passwordHash === passwordHash
+                );
+                
+                if (user) {
+                    // Login successful
+                    appState.currentUser = username;
+                    saveAppState();
+                    updateUI();
+                } else {
+                    showLoginMessage('Invalid username or password.', 'error');
+                }
+            }
+        }
+
+        // Show login message
+        function showLoginMessage(message, type = 'error') {
+            const messageElement = elements.loginMessage;
+            messageElement.textContent = message;
+            messageElement.className = type === 'error' 
+                ? 'text-red-500 mt-2' 
+                : 'text-green-500 mt-2';
+            messageElement.classList.remove('hidden');
+            
+            // Hide message after 3 seconds
+            setTimeout(() => {
+                messageElement.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Show GitHub operation message
+        function showGithubMessage(message, type = 'error') {
+            const messageElement = elements.githubMessage;
+            messageElement.textContent = message;
+            messageElement.className = type === 'error' 
+                ? 'text-red-500 mt-2' 
+                : 'text-green-500 mt-2';
+            messageElement.classList.remove('hidden');
+            
+            // Hide message after 5 seconds
+            setTimeout(() => {
+                messageElement.classList.add('hidden');
+            }, 5000);
+        }
+
+        // Handle logout
+        function handleLogout() {
+            appState.currentUser = null;
+            saveAppState();
+            updateUI();
+        }
+
+        // Show add menu modal
+        function showAddMenuModal() {
+            elements.modalTitle.textContent = 'Add Menu';
+            document.getElementById('menuName').value = '';
+            document.getElementById('menuLink').value = '';
+            appState.editingMenuIndex = -1;
+            elements.menuModal.classList.remove('hidden');
+        }
+
+        // Show edit menu modal
+        function editMenu(index) {
+            const menu = appState.menus[index];
+            elements.modalTitle.textContent = 'Edit Menu';
+            document.getElementById('menuName').value = menu.name;
+            document.getElementById('menuLink').value = menu.link;
+            appState.editingMenuIndex = index;
+            elements.menuModal.classList.remove('hidden');
+        }
+
+        // Hide menu modal
+        function hideMenuModal() {
+            elements.menuModal.classList.add('hidden');
+        }
+
+        // Save menu (add or edit)
+        function saveMenu() {
+            const name = document.getElementById('menuName').value.trim();
+            const link = document.getElementById('menuLink').value.trim();
+            
+            if (!name || !link) {
+                alert('Please enter both name and link.');
+                return;
+            }
+            
+            if (appState.editingMenuIndex >= 0) {
+                // Edit existing menu
+                appState.menus[appState.editingMenuIndex] = { name, link };
+            } else {
+                // Add new menu
+                appState.menus.push({ name, link });
+            }
+            
+            hideMenuModal();
+            renderMenuList();
+        }
+
+        // Delete menu
+        function deleteMenu(index) {
+            if (confirm('Are you sure you want to delete this menu?')) {
+                appState.menus.splice(index, 1);
+                renderMenuList();
+            }
+        }
+
+        // Load data from GitHub
+        async function loadFromGithub() {
+            // Get GitHub config from form
+            const owner = document.getElementById('repoOwner').value.trim();
+            const repo = document.getElementById('repoName').value.trim();
+            const path = document.getElementById('filePath').value.trim();
+            
+            if (!owner || !repo || !path) {
+                showGithubMessage('Please fill in all GitHub configuration fields.', 'error');
+                return;
+            }
+            
+            // Save GitHub config (except token)
+            appState.githubConfig.owner = owner;
+            appState.githubConfig.repo = repo;
+            appState.githubConfig.path = path;
+            saveAppState();
+            
+            // Show loading message
+            showGithubMessage('Loading data from GitHub...', 'info');
+            
+            try {
+                // Get raw content URL
+                const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+                
+                const response = await fetch(apiUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`GitHub API error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // GitHub API returns content as base64
+                const content = atob(data.content);
+                const parsedData = JSON.parse(content);
+                
+                // Update app state
+                if (parsedData.menus) {
+                    appState.menus = parsedData.menus;
+                }
+                
+                if (parsedData.users) {
+                    appState.users = parsedData.users;
+                }
+                
+                // Update UI
+                renderMenuList();
+                showGithubMessage('Data loaded successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Error loading from GitHub:', error);
+                showGithubMessage(`Error loading data: ${error.message}`, 'error');
+            }
+        }
+
+        // Save data to GitHub
+        async function saveToGithub() {
+            // Get GitHub config from form
+            const owner = document.getElementById('repoOwner').value.trim();
+            const repo = document.getElementById('repoName').value.trim();
+            const path = document.getElementById('filePath').value.trim();
+            const token = document.getElementById('accessToken').value.trim();
+            
+            if (!owner || !repo || !path || !token) {
+                showGithubMessage('Please fill in all GitHub configuration fields including the access token.', 'error');
+                return;
+            }
+            
+            // Save GitHub config (except token)
+            appState.githubConfig.owner = owner;
+            appState.githubConfig.repo = repo;
+            appState.githubConfig.path = path;
+            saveAppState();
+            
+            // Show loading message
+            showGithubMessage('Saving data to GitHub...', 'info');
+            
+            try {
+                // First, check if the file already exists to get its SHA
+                const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+                
+                let sha = null;
+                
+                try {
+                    const checkResponse = await fetch(apiUrl);
+                    if (checkResponse.ok) {
+                        const fileInfo = await checkResponse.json();
+                        sha = fileInfo.sha;
+                    }
+                } catch (error) {
+                    // File might not exist yet, which is fine for creation
+                    console.log('File does not exist yet, will create it');
+                }
+                
+                // Prepare the data to save
+                const dataToSave = {
+                    menus: appState.menus,
+                    users: appState.users
+                };
+                
+                // Convert to JSON and encode as base64
+                const content = JSON.stringify(dataToSave, null, 2);
+                const contentEncoded = btoa(content);
+                
+                // Prepare the request body
+                const requestBody = {
+                    message: 'Update menu data via Menu Manager app',
+                    content: contentEncoded
+                };
+                
+                // If we have a SHA, include it (for update)
+                if (sha) {
+                    requestBody.sha = sha;
+                }
+                
+                // Make the request to GitHub API
+                const saveResponse = await fetch(apiUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                if (!saveResponse.ok) {
+                    const errorText = await saveResponse.text();
+                    throw new Error(`GitHub API error: ${saveResponse.status} - ${errorText}`);
+                }
+                
+                showGithubMessage('Data saved to GitHub successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Error saving to GitHub:', error);
+                showGithubMessage(`Error saving data: ${error.message}`, 'error');
+            }
+        }
+
+        // Initialize the app
+        initApp();
+    </script>
+
+
+</body></html>
