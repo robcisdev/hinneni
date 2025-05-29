@@ -1,4 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+<!DOCTYPE html>
+<html lang="en">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Menu Manager</title>
@@ -515,6 +517,12 @@
                 return;
             }
             
+            // Validate file path ends with .json
+            if (!path.endsWith('.json')) {
+                showGithubMessage('File path must end with .json extension.', 'error');
+                return;
+            }
+            
             // Save GitHub config (except token)
             appState.githubConfig.owner = owner;
             appState.githubConfig.repo = repo;
@@ -525,20 +533,53 @@
             showGithubMessage('Saving data to GitHub...', 'info');
             
             try {
+                console.log(`Attempting to save to: ${owner}/${repo}/${path}`);
+                
                 // First, check if the file already exists to get its SHA
                 const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
                 
                 let sha = null;
                 
                 try {
-                    const checkResponse = await fetch(apiUrl);
+                    // Test connection to GitHub API
+                    const testResponse = await fetch('https://api.github.com/zen', {
+                        headers: {
+                            'Authorization': `token ${token}`
+                        }
+                    });
+                    
+                    if (!testResponse.ok) {
+                        throw new Error(`GitHub API test failed: ${testResponse.status} ${testResponse.statusText}`);
+                    }
+                    
+                    console.log('GitHub API connection test successful');
+                    
+                    // Check if file exists
+                    const checkResponse = await fetch(apiUrl, {
+                        headers: {
+                            'Authorization': `token ${token}`
+                        }
+                    });
+                    
+                    console.log('File check response status:', checkResponse.status);
+                    
                     if (checkResponse.ok) {
                         const fileInfo = await checkResponse.json();
                         sha = fileInfo.sha;
+                        console.log('File exists, got SHA:', sha);
+                    } else if (checkResponse.status === 404) {
+                        console.log('File does not exist yet, will create it');
+                    } else {
+                        const errorBody = await checkResponse.text();
+                        console.error('Error checking file:', errorBody);
+                        throw new Error(`Error checking file: ${checkResponse.status} ${checkResponse.statusText}`);
                     }
                 } catch (error) {
-                    // File might not exist yet, which is fine for creation
-                    console.log('File does not exist yet, will create it');
+                    console.error('Error during pre-check:', error);
+                    // Only throw if it's not a 404 (file not found), which is fine for creation
+                    if (!error.message.includes('404')) {
+                        throw error;
+                    }
                 }
                 
                 // Prepare the data to save
@@ -549,7 +590,7 @@
                 
                 // Convert to JSON and encode as base64
                 const content = JSON.stringify(dataToSave, null, 2);
-                const contentEncoded = btoa(content);
+                const contentEncoded = btoa(unescape(encodeURIComponent(content))); // Handle UTF-8 properly
                 
                 // Prepare the request body
                 const requestBody = {
@@ -562,6 +603,8 @@
                     requestBody.sha = sha;
                 }
                 
+                console.log('Sending save request to GitHub...');
+                
                 // Make the request to GitHub API
                 const saveResponse = await fetch(apiUrl, {
                     method: 'PUT',
@@ -572,22 +615,31 @@
                     body: JSON.stringify(requestBody)
                 });
                 
+                console.log('Save response status:', saveResponse.status);
+                
                 if (!saveResponse.ok) {
-                    const errorText = await saveResponse.text();
-                    throw new Error(`GitHub API error: ${saveResponse.status} - ${errorText}`);
+                    let errorDetails = '';
+                    try {
+                        const errorJson = await saveResponse.json();
+                        errorDetails = JSON.stringify(errorJson);
+                    } catch (e) {
+                        const errorText = await saveResponse.text();
+                        errorDetails = errorText;
+                    }
+                    
+                    throw new Error(`GitHub API error (${saveResponse.status}): ${errorDetails}`);
                 }
                 
                 showGithubMessage('Data saved to GitHub successfully!', 'success');
                 
             } catch (error) {
                 console.error('Error saving to GitHub:', error);
-                showGithubMessage(`Error saving data: ${error.message}`, 'error');
+                showGithubMessage(`Error saving data: ${error.message}. Check browser console for details.`, 'error');
             }
         }
 
         // Initialize the app
         initApp();
     </script>
-
-
-</body></html>
+</body>
+</html>
