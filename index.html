@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Menu Manager</title>
+    <title>Solenoid Test Diagram</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -11,17 +12,297 @@
                 extend: {
                     colors: {
                         primary: '#5D5CDE',
+                        good: '#10B981',
+                        bad: '#EF4444',
+                        pending: '#F59E0B'
                     }
                 }
             },
             darkMode: 'class'
         }
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/js-sha256@0.9.0/src/sha256.min.js"></script>
+    <style>
+        .pin {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 3px solid white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+            transform: translate(-50%, -50%);
+            z-index: 10;
+        }
+        .plc-box {
+            position: absolute;
+            min-width: 180px;
+            min-height: 120px;
+            background: #374151;
+            border: 3px solid white;
+            border-radius: 12px;
+            cursor: move;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            transform: translate(-50%, -50%);
+            z-index: 15;
+            padding: 12px;
+        }
+        .plc-header {
+            text-align: center;
+            border-bottom: 2px solid white;
+            padding-bottom: 6px;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        .plc-channels {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(32px, 1fr));
+            gap: 6px;
+            max-width: 280px;
+        }
+        .plc-channel {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 3px solid white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            min-height: 44px; /* Touch target minimum */
+            min-width: 44px;
+        }
+        .plc-channel:hover {
+            transform: scale(1.1);
+            border-width: 4px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        .plc-channel:active {
+            transform: scale(0.95);
+        }
+        .status-dots {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+        .status-dot.good { background-color: #10B981; }
+        .status-dot.bad { background-color: #EF4444; }
+        .status-dot.pending { background-color: #F59E0B; }
+        .status-legend {
+            font-size: 10px;
+            color: #6B7280;
+            margin-top: 8px;
+            text-align: center;
+        }
+        .color-picker-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .color-picker-content {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 300px;
+            width: 90%;
+        }
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin: 15px 0;
+        }
+        .color-option {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px solid white;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .color-option:hover {
+            transform: scale(1.1);
+            border-color: #5D5CDE;
+        }
+        .pin:hover {
+            transform: translate(-50%, -50%) scale(1.1);
+            border-width: 4px;
+        }
+        .canvas-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+        }
+        .status-good { background-color: #10B981; }
+        .status-bad { background-color: #EF4444; }
+        .status-pending { background-color: #F59E0B; }
+        
+        @media (max-width: 768px) {
+            .pin { width: 32px; height: 32px; font-size: 14px; }
+            .plc-box { width: 100px; height: 80px; font-size: 14px; }
+        }
+    </style>
 </head>
-<body class="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen">
-    <!-- Dark mode detection -->
+<body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+    <div class="min-h-screen p-4">
+        <!-- Header -->
+        <div class="mb-6">
+            <h1 class="text-3xl font-bold text-primary mb-2">Solenoid Test Diagram</h1>
+            <p class="text-gray-600 dark:text-gray-400">Upload a house diagram and map solenoid connections</p>
+        </div>
+
+        <!-- Upload Area -->
+        <div id="uploadArea" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center mb-6 bg-gray-50 dark:bg-gray-800 transition-colors hover:border-primary">
+            <div class="space-y-4">
+                <div class="text-4xl">📁</div>
+                <div>
+                    <p class="text-lg font-medium mb-2">Drop your diagram here or click to upload</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Supports JPG, PNG, PDF • You can also paste from clipboard (Ctrl+V)</p>
+                </div>
+                <input type="file" id="fileInput" accept="image/*,application/pdf" class="hidden">
+                <button onclick="document.getElementById('fileInput').click()" class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors text-base">
+                    Choose File
+                </button>
+            </div>
+        </div>
+
+        <!-- Canvas Area -->
+        <div id="canvasArea" class="hidden mb-6">
+            <div class="canvas-container bg-gray-100 dark:bg-gray-800 relative">
+                <img id="diagramImage" class="max-w-full h-auto block">
+                <canvas id="wireCanvas" class="absolute top-0 left-0 pointer-events-none"></canvas>
+                <div id="plcBox" class="plc-box" style="top: 100px; left: 100px;">
+                    <div class="plc-header">PLC</div>
+                    <div id="plcChannels" class="plc-channels"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div id="controls" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                <h3 class="font-semibold mb-3">Add Solenoid</h3>
+                <div class="space-y-2">
+                    <input type="number" id="pinNumber" placeholder="Pin #" min="1" class="w-full p-2 border rounded text-base">
+                    <select id="pinColor" class="w-full p-2 border rounded text-base">
+                        <option value="#10B981">Green (Good)</option>
+                        <option value="#F59E0B">Yellow (Pending)</option>
+                        <option value="#EF4444">Red (Bad)</option>
+                        <option value="#3B82F6">Blue</option>
+                        <option value="#8B5CF6">Purple</option>
+                    </select>
+                    <select id="wireColor" class="w-full p-2 border rounded text-base">
+                        <option value="">Wire Color (optional)</option>
+                        <option value="#EF4444">Red Wire</option>
+                        <option value="#10B981">Green Wire</option>
+                        <option value="#3B82F6">Blue Wire</option>
+                        <option value="#F59E0B">Yellow Wire</option>
+                        <option value="#8B5CF6">Purple Wire</option>
+                        <option value="#F97316">Orange Wire</option>
+                        <option value="#EC4899">Pink Wire</option>
+                        <option value="#6B7280">Gray Wire</option>
+                        <option value="#000000">Black Wire</option>
+                        <option value="#FFFFFF">White Wire</option>
+                    </select>
+                    <button id="addPinMode" class="w-full bg-primary text-white p-2 rounded hover:bg-primary/90 transition-colors">
+                        Click on Image to Add Pin
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                <h3 class="font-semibold mb-3">Pin Management</h3>
+                <div class="space-y-2">
+                    <select id="pinSelect" class="w-full p-2 border rounded text-base">
+                        <option value="">Select Pin</option>
+                    </select>
+                    <input type="text" id="pinName" placeholder="Pin Name (optional)" class="w-full p-2 border rounded text-base">
+                    <select id="statusSelect" class="w-full p-2 border rounded text-base">
+                        <option value="pending">Pending (Yellow)</option>
+                        <option value="good">Good (Green)</option>
+                        <option value="bad">Bad (Red)</option>
+                    </select>
+                    <button id="updatePin" class="w-full bg-green-600 text-white p-2 rounded hover:bg-green-700 transition-colors">
+                        Update Pin
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                <h3 class="font-semibold mb-3">Position & Wires</h3>
+                <div class="space-y-2">
+                    <button id="lockMovement" class="w-full bg-orange-600 text-white p-2 rounded hover:bg-orange-700 transition-colors">
+                        🔓 Unlock Movement
+                    </button>
+                    <button id="showWires" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition-colors">
+                        Hide Wires
+                    </button>
+                    <button id="clearAll" class="w-full bg-red-600 text-white p-2 rounded hover:bg-red-700 transition-colors">
+                        Clear All Pins
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                <h3 class="font-semibold mb-3">Export</h3>
+                <div class="space-y-2">
+                    <button id="exportPDF" class="w-full bg-purple-600 text-white p-2 rounded hover:bg-purple-700 transition-colors">
+                        Export to PDF
+                    </button>
+                    <input type="text" id="projectName" placeholder="Project Name" class="w-full p-2 border rounded text-base">
+                </div>
+            </div>
+        </div>
+
+        <!-- Pin List -->
+        <div id="pinList" class="hidden bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+            <h3 class="font-semibold mb-3">Solenoid List</h3>
+            <div id="pinListContent" class="space-y-2"></div>
+        </div>
+    </div>
+
     <script>
+        // Global variables
+        let diagram = null;
+        let pins = [];
+        let pinCounter = 1;
+        let addPinMode = false;
+        let showWires = true;
+        let plcPosition = { x: 100, y: 100 };
+        let movementLocked = false;
+        
+        // Dark mode support
         if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
             document.documentElement.classList.add('dark');
         }
@@ -32,614 +313,987 @@
                 document.documentElement.classList.remove('dark');
             }
         });
-    </script>
-    
-    <div class="container mx-auto p-4 max-w-4xl">
-        <h1 class="text-3xl font-bold text-center mb-8 text-primary">Menu Manager</h1>
-        
-        <!-- Login Section -->
-        <div id="loginSection" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
-            <h2 class="text-xl font-semibold mb-4">Login to Menu Manager</h2>
-            <div class="space-y-4">
-                <div>
-                    <label for="username" class="block mb-1">Username</label>
-                    <input type="text" id="username" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-base" placeholder="Username">
-                </div>
-                <div>
-                    <label for="password" class="block mb-1">Password</label>
-                    <input type="password" id="password" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-base" placeholder="Password">
-                </div>
-                <div class="flex justify-between items-center">
-                    <button id="loginBtn" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded">Login</button>
-                    <button id="registerBtn" class="text-primary hover:underline">Register Instead</button>
-                </div>
-                <div id="loginMessage" class="text-red-500 mt-2 hidden"></div>
-            </div>
-        </div>
-        
-        <!-- GitHub Config Section (Initially Hidden) -->
-        <div id="githubSection" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8 hidden">
-            <h2 class="text-xl font-semibold mb-4">GitHub Configuration</h2>
-            <div class="space-y-4">
-                <div>
-                    <label for="repoOwner" class="block mb-1">Repository Owner</label>
-                    <input type="text" id="repoOwner" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-base" placeholder="e.g., yourusername">
-                </div>
-                <div>
-                    <label for="repoName" class="block mb-1">Repository Name</label>
-                    <input type="text" id="repoName" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-base" placeholder="e.g., menu-data">
-                </div>
-                <div>
-                    <label for="filePath" class="block mb-1">File Path</label>
-                    <input type="text" id="filePath" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-base" placeholder="e.g., menus.json">
-                </div>
-                <div>
-                    <label for="accessToken" class="block mb-1">Personal Access Token (for saving)</label>
-                    <input type="password" id="accessToken" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-base" placeholder="Your GitHub Personal Access Token">
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">This is needed to save changes back to GitHub.</p>
-                </div>
-                <div class="flex space-x-3">
-                    <button id="loadFromGithubBtn" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded">Load Data</button>
-                    <button id="saveToGithubBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">Save Data</button>
-                </div>
-                <div id="githubMessage" class="mt-2 hidden"></div>
-            </div>
-        </div>
-        
-        <!-- Menu Management Section (Initially Hidden) -->
-        <div id="menuSection" class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8 hidden">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-semibold">Manage Menus</h2>
-                <button id="addMenuBtn" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded">Add Menu</button>
-            </div>
-            
-            <!-- Menu List -->
-            <div id="menuList" class="space-y-4 mt-4">
-                <!-- Menu items will be populated here dynamically -->
-            </div>
-            
-            <!-- No Menus Message -->
-            <div id="noMenusMessage" class="text-center py-6 text-gray-500 dark:text-gray-400 hidden">
-                No menus have been added yet. Use the "Add Menu" button to create your first menu.
-            </div>
-        </div>
-        
-        <!-- Add/Edit Menu Modal -->
-        <div id="menuModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">
-                <h3 id="modalTitle" class="text-xl font-semibold mb-4">Add Menu</h3>
-                <div class="space-y-4">
-                    <div>
-                        <label for="menuName" class="block mb-1">Menu Name</label>
-                        <input type="text" id="menuName" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-base" placeholder="Name">
-                    </div>
-                    <div>
-                        <label for="menuLink" class="block mb-1">Menu Link</label>
-                        <input type="text" id="menuLink" class="w-full px-4 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-base" placeholder="https://example.com">
-                    </div>
-                    <div class="flex justify-end space-x-3">
-                        <button id="cancelMenuBtn" class="bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-700 text-gray-800 dark:text-white px-4 py-2 rounded">Cancel</button>
-                        <button id="saveMenuBtn" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded">Save</button>
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        <!-- Log Out Button -->
-        <div id="logoutSection" class="text-right mt-4 hidden">
-            <button id="logoutBtn" class="text-primary hover:underline">Log Out</button>
-        </div>
-    </div>
+        // File upload handling
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const canvasArea = document.getElementById('canvasArea');
+        const controls = document.getElementById('controls');
+        const pinList = document.getElementById('pinList');
+        const diagramImage = document.getElementById('diagramImage');
+        const wireCanvas = document.getElementById('wireCanvas');
+        const ctx = wireCanvas.getContext('2d');
 
-    <script>
-        // Application state
-        const appState = {
-            users: [
-                // Default admin user - would be loaded from GitHub in a real app
-                { username: 'admin', passwordHash: '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918' } // admin
-            ],
-            menus: [],
-            currentUser: null,
-            editingMenuIndex: -1,
-            githubConfig: {
-                owner: '',
-                repo: '',
-                path: '',
-                token: ''
+        // Upload area events
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('border-primary');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('border-primary');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('border-primary');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileUpload(files[0]);
             }
-        };
+        });
 
-        // DOM Elements
-        const elements = {
-            loginSection: document.getElementById('loginSection'),
-            githubSection: document.getElementById('githubSection'),
-            menuSection: document.getElementById('menuSection'),
-            logoutSection: document.getElementById('logoutSection'),
-            menuModal: document.getElementById('menuModal'),
-            menuList: document.getElementById('menuList'),
-            noMenusMessage: document.getElementById('noMenusMessage'),
-            loginMessage: document.getElementById('loginMessage'),
-            githubMessage: document.getElementById('githubMessage'),
-            modalTitle: document.getElementById('modalTitle')
-        };
-
-        // Initialize the app
-        function initApp() {
-            // Check for saved data in localStorage
-            loadAppState();
-            
-            // Set up event listeners
-            setupEventListeners();
-            
-            // Update UI based on current state
-            updateUI();
-        }
-
-        // Load app state from localStorage
-        function loadAppState() {
+        // Clipboard paste support with error handling
+        document.addEventListener('paste', (e) => {
             try {
-                const savedState = localStorage.getItem('menuManagerState');
-                if (savedState) {
-                    const parsedState = JSON.parse(savedState);
-                    
-                    // Only restore non-sensitive data from localStorage
-                    appState.currentUser = parsedState.currentUser;
-                    appState.githubConfig = parsedState.githubConfig || {
-                        owner: '',
-                        repo: '',
-                        path: '',
-                        token: ''
-                    };
-                    
-                    // Don't restore the token from localStorage for security
-                    appState.githubConfig.token = '';
+                const items = e.clipboardData.items;
+                let imageFound = false;
+                
+                for (let item of items) {
+                    if (item.type.indexOf('image') !== -1) {
+                        const file = item.getAsFile();
+                        if (file && file.size > 0) {
+                            console.log('Image pasted:', file.type, file.size, 'bytes');
+                            handleFileUpload(file);
+                            imageFound = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (!imageFound) {
+                    console.log('No valid image found in clipboard');
                 }
             } catch (error) {
-                console.error('Error loading saved state:', error);
+                console.error('Error processing pasted content:', error);
+                showErrorMessage('Error processing pasted image. Please try uploading the file instead.');
             }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileUpload(e.target.files[0]);
+            }
+        });
+
+        // Error message display function
+        function showErrorMessage(message) {
+            const errorModal = document.createElement('div');
+            errorModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            errorModal.innerHTML = `
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-sm w-full mx-4">
+                    <h3 class="text-lg font-bold text-red-600 dark:text-red-400 mb-3">Error</h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-4">${message}</p>
+                    <div class="flex justify-end">
+                        <button class="px-4 py-2 bg-primary text-white hover:bg-primary/90 rounded" onclick="this.closest('.fixed').remove()">OK</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(errorModal);
         }
 
-        // Save app state to localStorage
-        function saveAppState() {
+        function handleFileUpload(file) {
             try {
-                // Store current state excluding sensitive data
-                const stateToSave = {
-                    currentUser: appState.currentUser,
-                    githubConfig: {
-                        ...appState.githubConfig,
-                        token: '' // Don't save the token
+                if (!file) {
+                    showErrorMessage('No file selected. Please choose a valid image file.');
+                    return;
+                }
+
+                if (!file.type.startsWith('image/')) {
+                    showErrorMessage('Please select a valid image file (JPG, PNG, GIF, etc.)');
+                    return;
+                }
+
+                if (file.size > 50 * 1024 * 1024) { // 50MB limit
+                    showErrorMessage('File is too large. Please select an image smaller than 50MB.');
+                    return;
+                }
+
+                console.log('Processing file:', file.name, file.type, file.size, 'bytes');
+
+                const reader = new FileReader();
+                
+                reader.onload = (e) => {
+                    try {
+                        diagramImage.src = e.target.result;
+                        diagramImage.onload = () => {
+                            try {
+                                setupCanvas();
+                                uploadArea.classList.add('hidden');
+                                canvasArea.classList.remove('hidden');
+                                controls.classList.remove('hidden');
+                                pinList.classList.remove('hidden');
+                                console.log('Image loaded successfully');
+                            } catch (setupError) {
+                                console.error('Error setting up canvas:', setupError);
+                                showErrorMessage('Error setting up the diagram. Please try refreshing the page.');
+                            }
+                        };
+                        
+                        diagramImage.onerror = () => {
+                            console.error('Error loading image');
+                            showErrorMessage('Error loading the image. Please try a different file format.');
+                        };
+                    } catch (loadError) {
+                        console.error('Error processing image data:', loadError);
+                        showErrorMessage('Error processing the image data. Please try a different file.');
                     }
                 };
                 
-                localStorage.setItem('menuManagerState', JSON.stringify(stateToSave));
+                reader.onerror = () => {
+                    console.error('Error reading file');
+                    showErrorMessage('Error reading the file. Please try again.');
+                };
+                
+                reader.readAsDataURL(file);
             } catch (error) {
-                console.error('Error saving state:', error);
+                console.error('Unexpected error in handleFileUpload:', error);
+                showErrorMessage('An unexpected error occurred. Please try refreshing the page.');
             }
         }
 
-        // Update UI based on current state
-        function updateUI() {
-            // Show/hide sections based on login state
-            elements.loginSection.classList.toggle('hidden', !!appState.currentUser);
-            elements.githubSection.classList.toggle('hidden', !appState.currentUser);
-            elements.menuSection.classList.toggle('hidden', !appState.currentUser);
-            elements.logoutSection.classList.toggle('hidden', !appState.currentUser);
-            
-            // Update menu list
-            renderMenuList();
+        function setupCanvas() {
+            try {
+                // Wait for image to be fully loaded and rendered
+                if (!diagramImage.complete || diagramImage.offsetWidth === 0 || diagramImage.offsetHeight === 0) {
+                    console.log('Image not ready, waiting...', {
+                        complete: diagramImage.complete,
+                        offsetWidth: diagramImage.offsetWidth,
+                        offsetHeight: diagramImage.offsetHeight
+                    });
+                    
+                    // Retry after a short delay
+                    setTimeout(() => {
+                        setupCanvas();
+                    }, 100);
+                    return;
+                }
+
+                const width = diagramImage.offsetWidth;
+                const height = diagramImage.offsetHeight;
+                
+                console.log('Setting up canvas:', width, 'x', height);
+                
+                if (width > 0 && height > 0) {
+                    wireCanvas.width = width;
+                    wireCanvas.height = height;
+                    wireCanvas.style.width = width + 'px';
+                    wireCanvas.style.height = height + 'px';
+                    
+                    // Only draw wires after successful canvas setup
+                    drawWires();
+                } else {
+                    console.error('Invalid canvas dimensions:', width, height);
+                }
+            } catch (error) {
+                console.error('Error in setupCanvas:', error);
+                showErrorMessage('Error setting up the canvas. Please try refreshing the page.');
+            }
         }
 
-        // Render the menu list
-        function renderMenuList() {
-            const menuList = document.getElementById('menuList');
-            menuList.innerHTML = '';
+        // Pin management
+        diagramImage.addEventListener('click', (e) => {
+            if (!addPinMode) return;
             
-            if (appState.menus.length === 0) {
-                elements.noMenusMessage.classList.remove('hidden');
+            const rect = diagramImage.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const pinNumber = document.getElementById('pinNumber').value || pinCounter;
+            const pinColor = document.getElementById('pinColor').value;
+            const wireColor = document.getElementById('wireColor').value || pinColor;
+            
+            addPin(x, y, pinNumber, pinColor, 'pending', '', wireColor);
+            pinCounter++;
+            document.getElementById('pinNumber').value = '';
+            document.getElementById('wireColor').value = '';
+        });
+
+        function addPin(x, y, number, color, status = 'pending', name = '', wireColor = null, notes = '') {
+            const pin = {
+                id: Date.now(),
+                number: number,
+                name: name,
+                notes: notes,
+                x: x,
+                y: y,
+                color: color,
+                wireColor: wireColor || color,
+                status: status, // Keep for backward compatibility
+                // Three new status concepts
+                wiringStatus: 'pending',
+                solenoidStatus: 'pending',
+                sprinklersStatus: 'pending'
+            };
+            
+            pins.push(pin);
+            createPinElement(pin);
+            updatePinList();
+            updatePinSelect();
+            updatePLCChannels();
+            
+            // Ensure wires are visible and canvas is ready
+            ensureWiresVisible();
+            // Force redraw after a small delay to ensure canvas is ready
+            setTimeout(() => {
+                drawWires();
+            }, 10);
+        }
+
+        function createPinElement(pin) {
+            const pinElement = document.createElement('div');
+            pinElement.className = `pin status-${pin.status}`;
+            pinElement.style.left = pin.x + 'px';
+            pinElement.style.top = pin.y + 'px';
+            pinElement.textContent = pin.number;
+            pinElement.dataset.pinId = pin.id;
+            
+            // Make pins draggable and clickable for color editing
+            let isDragging = false;
+            let clickStartTime = 0;
+            
+            pinElement.addEventListener('mousedown', startDrag);
+            pinElement.addEventListener('touchstart', startDrag);
+            pinElement.addEventListener('click', handlePinClick);
+            
+            function startDrag(e) {
+                if (movementLocked) {
+                    // When locked, don't start dragging
+                    isDragging = false;
+                    clickStartTime = Date.now();
+                    e.preventDefault();
+                    return;
+                }
+                isDragging = false;
+                clickStartTime = Date.now();
+                e.preventDefault();
+            }
+            
+            function handlePinClick(e) {
+                const clickDuration = Date.now() - clickStartTime;
+                // If it was a quick click (not a drag), show pin editor
+                if (clickDuration < 300 && !isDragging) {
+                    e.stopPropagation();
+                    showPinEditor(pin.id);
+                }
+            }
+            
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const rect = diagramImage.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                updatePinPosition(pin.id, x, y);
+            });
+            
+            document.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+                const rect = diagramImage.getBoundingClientRect();
+                const touch = e.touches[0];
+                const x = touch.clientX - rect.left;
+                const y = touch.clientY - rect.top;
+                updatePinPosition(pin.id, x, y);
+            });
+            
+            document.addEventListener('mouseup', () => isDragging = false);
+            document.addEventListener('touchend', () => isDragging = false);
+            
+            diagramImage.parentElement.appendChild(pinElement);
+        }
+
+        function updatePinPosition(pinId, x, y) {
+            const pin = pins.find(p => p.id === pinId);
+            if (pin) {
+                pin.x = x;
+                pin.y = y;
+                const pinElement = document.querySelector(`[data-pin-id="${pinId}"]`);
+                pinElement.style.left = x + 'px';
+                pinElement.style.top = y + 'px';
+                drawWires();
+            }
+        }
+
+        // PLC box dragging
+        const plcBox = document.getElementById('plcBox');
+        let plcDragging = false;
+
+        plcBox.addEventListener('mousedown', (e) => {
+            if (movementLocked) return; // Don't start dragging if locked
+            plcDragging = true;
+            e.preventDefault();
+        });
+
+        plcBox.addEventListener('touchstart', (e) => {
+            if (movementLocked) return; // Don't start dragging if locked
+            plcDragging = true;
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!plcDragging) return;
+            const rect = diagramImage.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            updatePLCPosition(x, y);
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (!plcDragging) return;
+            const rect = diagramImage.getBoundingClientRect();
+            const touch = e.touches[0];
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            updatePLCPosition(x, y);
+        });
+
+        document.addEventListener('mouseup', () => plcDragging = false);
+        document.addEventListener('touchend', () => plcDragging = false);
+
+        function updatePLCPosition(x, y) {
+            plcPosition.x = x;
+            plcPosition.y = y;
+            plcBox.style.left = x + 'px';
+            plcBox.style.top = y + 'px';
+            drawWires();
+        }
+
+        // Ensure wires are visible when adding pins
+        function ensureWiresVisible() {
+            if (!showWires) {
+                showWires = true;
+                const button = document.getElementById('showWires');
+                button.textContent = 'Hide Wires';
+                button.classList.remove('bg-red-600');
+                button.classList.add('bg-blue-600');
+            }
+        }
+
+        // Wire drawing with individual colors
+        function drawWires() {
+            // Always ensure canvas is properly sized
+            if (wireCanvas.width === 0 || wireCanvas.height === 0) {
+                setupCanvas();
                 return;
             }
             
-            elements.noMenusMessage.classList.add('hidden');
+            if (!showWires) return;
             
-            appState.menus.forEach((menu, index) => {
-                const menuItem = document.createElement('div');
-                menuItem.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded flex flex-col sm:flex-row sm:items-center justify-between';
+            ctx.clearRect(0, 0, wireCanvas.width, wireCanvas.height);
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            pins.forEach(pin => {
+                ctx.strokeStyle = pin.wireColor;
+                ctx.globalAlpha = 0.8; // Slight transparency for better visual
+                ctx.beginPath();
+                ctx.moveTo(pin.x, pin.y);
+                ctx.lineTo(plcPosition.x, plcPosition.y);
+                ctx.stroke();
+            });
+            
+            ctx.globalAlpha = 1.0; // Reset transparency
+        }
+
+        // PLC Channels display with three status dots
+        function updatePLCChannels() {
+            const channelsContainer = document.getElementById('plcChannels');
+            channelsContainer.innerHTML = '';
+            
+            pins.forEach(pin => {
+                const channel = document.createElement('div');
+                channel.className = 'plc-channel';
+                channel.style.backgroundColor = pin.wireColor;
+                channel.textContent = pin.number;
                 
-                const menuInfo = document.createElement('div');
-                menuInfo.className = 'mb-3 sm:mb-0';
+                // Create status dots container
+                const statusDotsContainer = document.createElement('div');
+                statusDotsContainer.className = 'status-dots';
                 
-                const menuName = document.createElement('h3');
-                menuName.className = 'font-medium';
-                menuName.textContent = menu.name;
+                // Create three status dots
+                const wiringDot = document.createElement('div');
+                wiringDot.className = `status-dot ${pin.wiringStatus}`;
+                wiringDot.title = 'Wiring';
                 
-                const menuLink = document.createElement('a');
-                menuLink.href = menu.link;
-                menuLink.target = '_blank';
-                menuLink.className = 'text-primary hover:underline text-sm';
-                menuLink.textContent = menu.link;
+                const solenoidDot = document.createElement('div');
+                solenoidDot.className = `status-dot ${pin.solenoidStatus}`;
+                solenoidDot.title = 'Solenoid Valve';
                 
-                menuInfo.appendChild(menuName);
-                menuInfo.appendChild(menuLink);
+                const sprinklersDot = document.createElement('div');
+                sprinklersDot.className = `status-dot ${pin.sprinklersStatus}`;
+                sprinklersDot.title = 'Sprinklers';
                 
-                const menuActions = document.createElement('div');
-                menuActions.className = 'flex space-x-2';
+                statusDotsContainer.appendChild(wiringDot);
+                statusDotsContainer.appendChild(solenoidDot);
+                statusDotsContainer.appendChild(sprinklersDot);
+                channel.appendChild(statusDotsContainer);
                 
-                const editButton = document.createElement('button');
-                editButton.className = 'bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm';
-                editButton.textContent = 'Edit';
-                editButton.addEventListener('click', () => editMenu(index));
+                // Create comprehensive tooltip text
+                let tooltipText = pin.name ? `Pin #${pin.number} (${pin.name})` : `Pin #${pin.number}`;
+                tooltipText += `\n🔌 Wiring: ${pin.wiringStatus.charAt(0).toUpperCase() + pin.wiringStatus.slice(1)}`;
+                tooltipText += `\n⚡ Solenoid: ${pin.solenoidStatus.charAt(0).toUpperCase() + pin.solenoidStatus.slice(1)}`;
+                tooltipText += `\n💧 Sprinklers: ${pin.sprinklersStatus.charAt(0).toUpperCase() + pin.sprinklersStatus.slice(1)}`;
+                if (pin.notes) {
+                    tooltipText += `\n📝 Notes: ${pin.notes}`;
+                }
+                tooltipText += '\nClick to edit';
                 
-                const deleteButton = document.createElement('button');
-                deleteButton.className = 'bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm';
-                deleteButton.textContent = 'Delete';
-                deleteButton.addEventListener('click', () => deleteMenu(index));
+                channel.title = tooltipText;
+                channel.dataset.pinId = pin.id;
                 
-                menuActions.appendChild(editButton);
-                menuActions.appendChild(deleteButton);
+                // Add click handler for full pin editor
+                channel.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showPinEditor(pin.id);
+                });
                 
-                menuItem.appendChild(menuInfo);
-                menuItem.appendChild(menuActions);
+                channelsContainer.appendChild(channel);
+            });
+            
+            // Add legend below PLC channels
+            if (pins.length > 0) {
+                const legend = document.createElement('div');
+                legend.className = 'status-legend';
+                legend.innerHTML = '🔌 Wiring • ⚡ Solenoid • 💧 Sprinklers';
+                channelsContainer.appendChild(legend);
+            }
+        }
+
+        // Color picker functionality
+        function showColorPicker(pinId, title) {
+            const colors = [
+                { name: 'Red', value: '#EF4444' },
+                { name: 'Green', value: '#10B981' },
+                { name: 'Blue', value: '#3B82F6' },
+                { name: 'Yellow', value: '#F59E0B' },
+                { name: 'Purple', value: '#8B5CF6' },
+                { name: 'Orange', value: '#F97316' },
+                { name: 'Pink', value: '#EC4899' },
+                { name: 'Gray', value: '#6B7280' },
+                { name: 'Black', value: '#000000' },
+                { name: 'White', value: '#FFFFFF' }
+            ];
+
+            const modal = document.createElement('div');
+            modal.className = 'color-picker-modal';
+            modal.innerHTML = `
+                <div class="color-picker-content dark:bg-gray-800 dark:text-white">
+                    <h3 class="text-lg font-bold mb-3">${title}</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">Select a wire color:</p>
+                    <div class="color-grid">
+                        ${colors.map(color => `
+                            <div class="color-option" 
+                                 style="background-color: ${color.value}" 
+                                 title="${color.name}"
+                                 data-color="${color.value}">
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" onclick="this.closest('.color-picker-modal').remove()">Cancel</button>
+                    </div>
+                </div>
+            `;
+
+            // Add click handlers for color options
+            modal.querySelectorAll('.color-option').forEach(option => {
+                option.addEventListener('click', () => {
+                    const newColor = option.dataset.color;
+                    updatePinWireColor(pinId, newColor);
+                    modal.remove();
+                });
+            });
+
+            document.body.appendChild(modal);
+        }
+
+        // Pin Editor with comprehensive functionality
+        function showPinEditor(pinId) {
+            const pin = pins.find(p => p.id == pinId);
+            if (!pin) return;
+
+            const colors = [
+                { name: 'Red', value: '#EF4444' },
+                { name: 'Green', value: '#10B981' },
+                { name: 'Blue', value: '#3B82F6' },
+                { name: 'Yellow', value: '#F59E0B' },
+                { name: 'Purple', value: '#8B5CF6' },
+                { name: 'Orange', value: '#F97316' },
+                { name: 'Pink', value: '#EC4899' },
+                { name: 'Gray', value: '#6B7280' },
+                { name: 'Black', value: '#000000' },
+                { name: 'White', value: '#FFFFFF' }
+            ];
+
+            const pinName = pin.name ? `${pin.name}` : `Pin #${pin.number}`;
+            const modal = document.createElement('div');
+            modal.className = 'color-picker-modal';
+            modal.innerHTML = `
+                <div class="color-picker-content dark:bg-gray-800 dark:text-white" style="max-width: 400px;">
+                    <h3 class="text-lg font-bold mb-3">Edit ${pinName}</h3>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">Wire Color:</label>
+                        <div class="color-grid">
+                            ${colors.map(color => `
+                                <div class="color-option ${pin.wireColor === color.value ? 'ring-4 ring-primary' : ''}" 
+                                     style="background-color: ${color.value}" 
+                                     title="${color.name}"
+                                     data-color="${color.value}">
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-3">Component Status:</label>
+                        
+                        <div class="grid grid-cols-1 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">🔌 Wiring</label>
+                                <select id="modalWiringStatus" class="w-full p-2 border rounded text-sm dark:bg-gray-700 dark:border-gray-600">
+                                    <option value="pending" ${pin.wiringStatus === 'pending' ? 'selected' : ''}>🟡 Pending</option>
+                                    <option value="good" ${pin.wiringStatus === 'good' ? 'selected' : ''}>🟢 Good</option>
+                                    <option value="bad" ${pin.wiringStatus === 'bad' ? 'selected' : ''}>🔴 Bad</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">⚡ Solenoid Valve</label>
+                                <select id="modalSolenoidStatus" class="w-full p-2 border rounded text-sm dark:bg-gray-700 dark:border-gray-600">
+                                    <option value="pending" ${pin.solenoidStatus === 'pending' ? 'selected' : ''}>🟡 Pending</option>
+                                    <option value="good" ${pin.solenoidStatus === 'good' ? 'selected' : ''}>🟢 Good</option>
+                                    <option value="bad" ${pin.solenoidStatus === 'bad' ? 'selected' : ''}>🔴 Bad</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">💧 Sprinklers</label>
+                                <select id="modalSprinklersStatus" class="w-full p-2 border rounded text-sm dark:bg-gray-700 dark:border-gray-600">
+                                    <option value="pending" ${pin.sprinklersStatus === 'pending' ? 'selected' : ''}>🟡 Pending</option>
+                                    <option value="good" ${pin.sprinklersStatus === 'good' ? 'selected' : ''}>🟢 Good</option>
+                                    <option value="bad" ${pin.sprinklersStatus === 'bad' ? 'selected' : ''}>🔴 Bad</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">Notes:</label>
+                        <textarea id="modalNotes" placeholder="Add testing notes, observations, or special instructions..." 
+                                  class="w-full p-2 border rounded text-base h-20 resize-none dark:bg-gray-700 dark:border-gray-600">${pin.notes || ''}</textarea>
+                    </div>
+
+                    <div class="flex justify-end space-x-3">
+                        <button id="cancelEdit" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">Cancel</button>
+                        <button id="saveEdit" class="px-4 py-2 bg-primary text-white hover:bg-primary/90 rounded">Save Changes</button>
+                    </div>
+                </div>
+            `;
+
+            let selectedColor = pin.wireColor;
+
+            // Add click handlers for color options
+            modal.querySelectorAll('.color-option').forEach(option => {
+                option.addEventListener('click', () => {
+                    // Remove previous selection
+                    modal.querySelectorAll('.color-option').forEach(opt => {
+                        opt.classList.remove('ring-4', 'ring-primary');
+                    });
+                    // Add selection to clicked option
+                    option.classList.add('ring-4', 'ring-primary');
+                    selectedColor = option.dataset.color;
+                });
+            });
+
+            // Cancel button
+            modal.querySelector('#cancelEdit').addEventListener('click', () => {
+                modal.remove();
+            });
+
+            // Save button
+            modal.querySelector('#saveEdit').addEventListener('click', () => {
+                const newWiringStatus = modal.querySelector('#modalWiringStatus').value;
+                const newSolenoidStatus = modal.querySelector('#modalSolenoidStatus').value;
+                const newSprinklersStatus = modal.querySelector('#modalSprinklersStatus').value;
+                const newNotes = modal.querySelector('#modalNotes').value.trim();
                 
-                menuList.appendChild(menuItem);
+                updatePinDetailsThreeStatus(pinId, selectedColor, newWiringStatus, newSolenoidStatus, newSprinklersStatus, newNotes);
+                modal.remove();
+            });
+
+            document.body.appendChild(modal);
+        }
+
+        function updatePinDetails(pinId, wireColor, status, notes) {
+            const pin = pins.find(p => p.id == pinId);
+            if (pin) {
+                pin.wireColor = wireColor;
+                pin.status = status;
+                pin.notes = notes;
+                
+                // Update pin element class for status color
+                const pinElement = document.querySelector(`[data-pin-id="${pinId}"]`);
+                pinElement.className = `pin status-${status}`;
+                
+                // Update all displays
+                updatePLCChannels();
+                updatePinList();
+                updatePinSelect();
+                drawWires();
+            }
+        }
+
+        function updatePinDetailsThreeStatus(pinId, wireColor, wiringStatus, solenoidStatus, sprinklersStatus, notes) {
+            const pin = pins.find(p => p.id == pinId);
+            if (pin) {
+                pin.wireColor = wireColor;
+                pin.wiringStatus = wiringStatus;
+                pin.solenoidStatus = solenoidStatus;
+                pin.sprinklersStatus = sprinklersStatus;
+                pin.notes = notes;
+                
+                // Update overall status based on worst status
+                const statuses = [wiringStatus, solenoidStatus, sprinklersStatus];
+                if (statuses.includes('bad')) {
+                    pin.status = 'bad';
+                } else if (statuses.includes('pending')) {
+                    pin.status = 'pending';
+                } else {
+                    pin.status = 'good';
+                }
+                
+                // Update pin element class for status color
+                const pinElement = document.querySelector(`[data-pin-id="${pinId}"]`);
+                pinElement.className = `pin status-${pin.status}`;
+                
+                // Update all displays
+                updatePLCChannels();
+                updatePinList();
+                updatePinSelect();
+                drawWires();
+            }
+        }
+
+        function updatePinWireColor(pinId, newColor) {
+            const pin = pins.find(p => p.id == pinId);
+            if (pin) {
+                pin.wireColor = newColor;
+                updatePLCChannels();
+                drawWires();
+            }
+        }
+
+        // Control handlers
+        document.getElementById('addPinMode').addEventListener('click', () => {
+            addPinMode = !addPinMode;
+            const button = document.getElementById('addPinMode');
+            button.textContent = addPinMode ? 'Cancel Add Pin' : 'Click on Image to Add Pin';
+            button.classList.toggle('bg-red-600');
+            button.classList.toggle('bg-primary');
+        });
+
+        document.getElementById('updatePin').addEventListener('click', () => {
+            const selectedPinId = document.getElementById('pinSelect').value;
+            const newStatus = document.getElementById('statusSelect').value;
+            const newName = document.getElementById('pinName').value.trim();
+            
+            if (selectedPinId) {
+                updatePin(selectedPinId, newStatus, newName);
+            }
+        });
+
+        // Auto-populate pin name when selecting a pin
+        document.getElementById('pinSelect').addEventListener('change', (e) => {
+            const selectedPinId = e.target.value;
+            if (selectedPinId) {
+                const pin = pins.find(p => p.id == selectedPinId);
+                if (pin) {
+                    document.getElementById('pinName').value = pin.name || '';
+                    document.getElementById('statusSelect').value = pin.status;
+                }
+            } else {
+                document.getElementById('pinName').value = '';
+                document.getElementById('statusSelect').value = 'pending';
+            }
+        });
+
+        function updatePin(pinId, status, name) {
+            const pin = pins.find(p => p.id == pinId);
+            if (pin) {
+                pin.status = status;
+                pin.name = name;
+                const pinElement = document.querySelector(`[data-pin-id="${pinId}"]`);
+                pinElement.className = `pin status-${status}`;
+                updatePinList();
+                updatePinSelect();
+            }
+        }
+
+        // Lock movement functionality
+        document.getElementById('lockMovement').addEventListener('click', () => {
+            movementLocked = !movementLocked;
+            const button = document.getElementById('lockMovement');
+            
+            if (movementLocked) {
+                button.textContent = '🔒 Locked (Click to Unlock)';
+                button.classList.remove('bg-orange-600', 'hover:bg-orange-700');
+                button.classList.add('bg-gray-600', 'hover:bg-gray-700');
+            } else {
+                button.textContent = '🔓 Unlock Movement';
+                button.classList.remove('bg-gray-600', 'hover:bg-gray-700');
+                button.classList.add('bg-orange-600', 'hover:bg-orange-700');
+            }
+        });
+
+        document.getElementById('showWires').addEventListener('click', () => {
+            showWires = !showWires;
+            const button = document.getElementById('showWires');
+            button.textContent = showWires ? 'Hide Wires' : 'Show Wires';
+            if (showWires) {
+                drawWires();
+            } else {
+                ctx.clearRect(0, 0, wireCanvas.width, wireCanvas.height);
+            }
+        });
+
+        document.getElementById('clearAll').addEventListener('click', () => {
+            if (showConfirmDialog('Are you sure you want to clear all pins?', () => {
+                pins.forEach(pin => {
+                    const pinElement = document.querySelector(`[data-pin-id="${pin.id}"]`);
+                    if (pinElement) pinElement.remove();
+                });
+                pins = [];
+                pinCounter = 1;
+                updatePinList();
+                updatePinSelect();
+                ctx.clearRect(0, 0, wireCanvas.width, wireCanvas.height);
+            })) {}
+        });
+
+        function showConfirmDialog(message, onConfirm) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-sm w-full mx-4">
+                    <p class="text-gray-700 dark:text-gray-300 mb-4">${message}</p>
+                    <div class="flex justify-end space-x-3">
+                        <button class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" onclick="this.closest('.fixed').remove()">Cancel</button>
+                        <button class="px-4 py-2 bg-red-500 text-white hover:bg-red-600 rounded" onclick="this.closest('.fixed').remove(); (${onConfirm})()">Confirm</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function updatePinList() {
+            const listContent = document.getElementById('pinListContent');
+            listContent.innerHTML = '';
+            
+            pins.forEach(pin => {
+                const statusText = pin.status.charAt(0).toUpperCase() + pin.status.slice(1);
+                const statusColor = pin.status === 'good' ? 'text-green-600' : 
+                                  pin.status === 'bad' ? 'text-red-600' : 'text-yellow-600';
+                
+                const displayName = pin.name ? `Pin #${pin.number} (${pin.name})` : `Pin #${pin.number}`;
+                
+                // Create status indicators for each component
+                const wiringIcon = pin.wiringStatus === 'good' ? '🟢' : pin.wiringStatus === 'bad' ? '🔴' : '🟡';
+                const solenoidIcon = pin.solenoidStatus === 'good' ? '🟢' : pin.solenoidStatus === 'bad' ? '🔴' : '🟡';
+                const sprinklersIcon = pin.sprinklersStatus === 'good' ? '🟢' : pin.sprinklersStatus === 'bad' ? '🔴' : '🟡';
+                
+                const item = document.createElement('div');
+                item.className = 'p-3 bg-white dark:bg-gray-700 rounded border';
+                item.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="font-medium">${displayName}</span>
+                        <span class="${statusColor} font-semibold text-sm">Overall: ${statusText}</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-xs">
+                        <div class="flex items-center">
+                            <span class="mr-1">${wiringIcon}</span>
+                            <span class="text-gray-600 dark:text-gray-400">Wiring</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="mr-1">${solenoidIcon}</span>
+                            <span class="text-gray-600 dark:text-gray-400">Solenoid</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="mr-1">${sprinklersIcon}</span>
+                            <span class="text-gray-600 dark:text-gray-400">Sprinklers</span>
+                        </div>
+                    </div>
+                    ${pin.notes ? `<div class="mt-2 text-xs text-gray-500 dark:text-gray-400 italic">"${pin.notes}"</div>` : ''}
+                `;
+                listContent.appendChild(item);
             });
         }
 
-        // Setup event listeners for all interactive elements
-        function setupEventListeners() {
-            // Login functionality
-            document.getElementById('loginBtn').addEventListener('click', handleLogin);
-            document.getElementById('registerBtn').addEventListener('click', toggleRegisterMode);
-            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+        function updatePinSelect() {
+            const select = document.getElementById('pinSelect');
+            select.innerHTML = '<option value="">Select Pin</option>';
             
-            // Menu management
-            document.getElementById('addMenuBtn').addEventListener('click', showAddMenuModal);
-            document.getElementById('cancelMenuBtn').addEventListener('click', hideMenuModal);
-            document.getElementById('saveMenuBtn').addEventListener('click', saveMenu);
-            
-            // GitHub integration
-            document.getElementById('loadFromGithubBtn').addEventListener('click', loadFromGithub);
-            document.getElementById('saveToGithubBtn').addEventListener('click', saveToGithub);
+            pins.forEach(pin => {
+                const option = document.createElement('option');
+                option.value = pin.id;
+                const displayText = pin.name ? `Pin #${pin.number} (${pin.name})` : `Pin #${pin.number}`;
+                option.textContent = displayText;
+                select.appendChild(option);
+            });
         }
 
-        // Toggle between login and register mode
-        function toggleRegisterMode() {
-            const loginBtn = document.getElementById('loginBtn');
-            const registerBtn = document.getElementById('registerBtn');
-            
-            if (loginBtn.textContent === 'Login') {
-                loginBtn.textContent = 'Register';
-                registerBtn.textContent = 'Login Instead';
-            } else {
-                loginBtn.textContent = 'Login';
-                registerBtn.textContent = 'Register Instead';
-            }
-        }
+        // PDF Export
+        document.getElementById('exportPDF').addEventListener('click', () => {
+            const projectName = document.getElementById('projectName').value || 'Solenoid_Test_Diagram';
+            exportToPDF(projectName);
+        });
 
-        // Handle login or registration
-        function handleLogin() {
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value;
-            const isRegisterMode = document.getElementById('loginBtn').textContent === 'Register';
+        function exportToPDF(projectName) {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('l', 'mm', 'a4');
             
-            if (!username || !password) {
-                showLoginMessage('Please enter both username and password.', 'error');
-                return;
-            }
+            // Create a temporary canvas for export
+            const exportCanvas = document.createElement('canvas');
+            const exportCtx = exportCanvas.getContext('2d');
             
-            // Hash the password
-            const passwordHash = sha256(password);
-            
-            if (isRegisterMode) {
-                // Check if username already exists
-                if (appState.users.some(user => user.username === username)) {
-                    showLoginMessage('Username already exists. Please choose another.', 'error');
-                    return;
-                }
+            const img = new Image();
+            img.onload = () => {
+                // Set canvas size
+                exportCanvas.width = img.width;
+                exportCanvas.height = img.height;
                 
-                // Add new user
-                appState.users.push({ username, passwordHash });
-                showLoginMessage('Registration successful! You can now log in.', 'success');
-                toggleRegisterMode(); // Switch back to login mode
-            } else {
-                // Check credentials
-                const user = appState.users.find(user => 
-                    user.username === username && user.passwordHash === passwordHash
-                );
+                // Draw background image
+                exportCtx.drawImage(img, 0, 0);
                 
-                if (user) {
-                    // Login successful
-                    appState.currentUser = username;
-                    saveAppState();
-                    updateUI();
-                } else {
-                    showLoginMessage('Invalid username or password.', 'error');
-                }
-            }
-        }
-
-        // Show login message
-        function showLoginMessage(message, type = 'error') {
-            const messageElement = elements.loginMessage;
-            messageElement.textContent = message;
-            messageElement.className = type === 'error' 
-                ? 'text-red-500 mt-2' 
-                : 'text-green-500 mt-2';
-            messageElement.classList.remove('hidden');
-            
-            // Hide message after 3 seconds
-            setTimeout(() => {
-                messageElement.classList.add('hidden');
-            }, 3000);
-        }
-
-        // Show GitHub operation message
-        function showGithubMessage(message, type = 'error') {
-            const messageElement = elements.githubMessage;
-            messageElement.textContent = message;
-            messageElement.className = type === 'error' 
-                ? 'text-red-500 mt-2' 
-                : 'text-green-500 mt-2';
-            messageElement.classList.remove('hidden');
-            
-            // Hide message after 5 seconds
-            setTimeout(() => {
-                messageElement.classList.add('hidden');
-            }, 5000);
-        }
-
-        // Handle logout
-        function handleLogout() {
-            appState.currentUser = null;
-            saveAppState();
-            updateUI();
-        }
-
-        // Show add menu modal
-        function showAddMenuModal() {
-            elements.modalTitle.textContent = 'Add Menu';
-            document.getElementById('menuName').value = '';
-            document.getElementById('menuLink').value = '';
-            appState.editingMenuIndex = -1;
-            elements.menuModal.classList.remove('hidden');
-        }
-
-        // Show edit menu modal
-        function editMenu(index) {
-            const menu = appState.menus[index];
-            elements.modalTitle.textContent = 'Edit Menu';
-            document.getElementById('menuName').value = menu.name;
-            document.getElementById('menuLink').value = menu.link;
-            appState.editingMenuIndex = index;
-            elements.menuModal.classList.remove('hidden');
-        }
-
-        // Hide menu modal
-        function hideMenuModal() {
-            elements.menuModal.classList.add('hidden');
-        }
-
-        // Save menu (add or edit)
-        function saveMenu() {
-            const name = document.getElementById('menuName').value.trim();
-            const link = document.getElementById('menuLink').value.trim();
-            
-            if (!name || !link) {
-                alert('Please enter both name and link.');
-                return;
-            }
-            
-            if (appState.editingMenuIndex >= 0) {
-                // Edit existing menu
-                appState.menus[appState.editingMenuIndex] = { name, link };
-            } else {
-                // Add new menu
-                appState.menus.push({ name, link });
-            }
-            
-            hideMenuModal();
-            renderMenuList();
-        }
-
-        // Delete menu
-        function deleteMenu(index) {
-            if (confirm('Are you sure you want to delete this menu?')) {
-                appState.menus.splice(index, 1);
-                renderMenuList();
-            }
-        }
-
-        // Load data from GitHub
-        async function loadFromGithub() {
-            // Get GitHub config from form
-            const owner = document.getElementById('repoOwner').value.trim();
-            const repo = document.getElementById('repoName').value.trim();
-            const path = document.getElementById('filePath').value.trim();
-            
-            if (!owner || !repo || !path) {
-                showGithubMessage('Please fill in all GitHub configuration fields.', 'error');
-                return;
-            }
-            
-            // Save GitHub config (except token)
-            appState.githubConfig.owner = owner;
-            appState.githubConfig.repo = repo;
-            appState.githubConfig.path = path;
-            saveAppState();
-            
-            // Show loading message
-            showGithubMessage('Loading data from GitHub...', 'info');
-            
-            try {
-                // Get raw content URL
-                const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-                
-                const response = await fetch(apiUrl);
-                
-                if (!response.ok) {
-                    throw new Error(`GitHub API error: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                
-                // GitHub API returns content as base64
-                const content = atob(data.content);
-                const parsedData = JSON.parse(content);
-                
-                // Update app state
-                if (parsedData.menus) {
-                    appState.menus = parsedData.menus;
-                }
-                
-                if (parsedData.users) {
-                    appState.users = parsedData.users;
-                }
-                
-                // Update UI
-                renderMenuList();
-                showGithubMessage('Data loaded successfully!', 'success');
-                
-            } catch (error) {
-                console.error('Error loading from GitHub:', error);
-                showGithubMessage(`Error loading data: ${error.message}`, 'error');
-            }
-        }
-
-        // Save data to GitHub
-        async function saveToGithub() {
-            // Get GitHub config from form
-            const owner = document.getElementById('repoOwner').value.trim();
-            const repo = document.getElementById('repoName').value.trim();
-            const path = document.getElementById('filePath').value.trim();
-            const token = document.getElementById('accessToken').value.trim();
-            
-            if (!owner || !repo || !path || !token) {
-                showGithubMessage('Please fill in all GitHub configuration fields including the access token.', 'error');
-                return;
-            }
-            
-            // Validate file path ends with .json
-            if (!path.endsWith('.json')) {
-                showGithubMessage('File path must end with .json extension.', 'error');
-                return;
-            }
-            
-            // Save GitHub config (except token)
-            appState.githubConfig.owner = owner;
-            appState.githubConfig.repo = repo;
-            appState.githubConfig.path = path;
-            saveAppState();
-            
-            // Show loading message
-            showGithubMessage('Saving data to GitHub...', 'info');
-            
-            try {
-                console.log(`Attempting to save to: ${owner}/${repo}/${path}`);
-                
-                // First, check if the file already exists to get its SHA
-                const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-                
-                let sha = null;
-                
-                try {
-                    // Test connection to GitHub API
-                    const testResponse = await fetch('https://api.github.com/zen', {
-                        headers: {
-                            'Authorization': `token ${token}`
-                        }
-                    });
-                    
-                    if (!testResponse.ok) {
-                        throw new Error(`GitHub API test failed: ${testResponse.status} ${testResponse.statusText}`);
-                    }
-                    
-                    console.log('GitHub API connection test successful');
-                    
-                    // Check if file exists
-                    const checkResponse = await fetch(apiUrl, {
-                        headers: {
-                            'Authorization': `token ${token}`
-                        }
-                    });
-                    
-                    console.log('File check response status:', checkResponse.status);
-                    
-                    if (checkResponse.ok) {
-                        const fileInfo = await checkResponse.json();
-                        sha = fileInfo.sha;
-                        console.log('File exists, got SHA:', sha);
-                    } else if (checkResponse.status === 404) {
-                        console.log('File does not exist yet, will create it');
-                    } else {
-                        const errorBody = await checkResponse.text();
-                        console.error('Error checking file:', errorBody);
-                        throw new Error(`Error checking file: ${checkResponse.status} ${checkResponse.statusText}`);
-                    }
-                } catch (error) {
-                    console.error('Error during pre-check:', error);
-                    // Only throw if it's not a 404 (file not found), which is fine for creation
-                    if (!error.message.includes('404')) {
-                        throw error;
-                    }
-                }
-                
-                // Prepare the data to save
-                const dataToSave = {
-                    menus: appState.menus,
-                    users: appState.users
-                };
-                
-                // Convert to JSON and encode as base64
-                const content = JSON.stringify(dataToSave, null, 2);
-                const contentEncoded = btoa(unescape(encodeURIComponent(content))); // Handle UTF-8 properly
-                
-                // Prepare the request body
-                const requestBody = {
-                    message: 'Update menu data via Menu Manager app',
-                    content: contentEncoded
-                };
-                
-                // If we have a SHA, include it (for update)
-                if (sha) {
-                    requestBody.sha = sha;
-                }
-                
-                console.log('Sending save request to GitHub...');
-                
-                // Make the request to GitHub API
-                const saveResponse = await fetch(apiUrl, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `token ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(requestBody)
+                // Draw colored wires
+                exportCtx.lineWidth = 5;
+                pins.forEach(pin => {
+                    exportCtx.strokeStyle = pin.wireColor;
+                    exportCtx.beginPath();
+                    exportCtx.moveTo(pin.x, pin.y);
+                    exportCtx.lineTo(plcPosition.x, plcPosition.y);
+                    exportCtx.stroke();
                 });
                 
-                console.log('Save response status:', saveResponse.status);
+                // Draw enhanced PLC box
+                const plcWidth = Math.max(120, pins.length * 20 + 40);
+                const plcHeight = 100;
+                exportCtx.fillStyle = '#374151';
+                exportCtx.fillRect(plcPosition.x - plcWidth/2, plcPosition.y - plcHeight/2, plcWidth, plcHeight);
+                exportCtx.strokeStyle = 'white';
+                exportCtx.lineWidth = 3;
+                exportCtx.strokeRect(plcPosition.x - plcWidth/2, plcPosition.y - plcHeight/2, plcWidth, plcHeight);
                 
-                if (!saveResponse.ok) {
-                    let errorDetails = '';
-                    try {
-                        const errorJson = await saveResponse.json();
-                        errorDetails = JSON.stringify(errorJson);
-                    } catch (e) {
-                        const errorText = await saveResponse.text();
-                        errorDetails = errorText;
-                    }
+                // Draw PLC header
+                exportCtx.fillStyle = 'white';
+                exportCtx.font = 'bold 16px Arial';
+                exportCtx.textAlign = 'center';
+                exportCtx.fillText('PLC', plcPosition.x, plcPosition.y - 20);
+                
+                // Draw PLC channels
+                const channelSize = 16;
+                const channelsPerRow = Math.floor((plcWidth - 20) / (channelSize + 4));
+                pins.forEach((pin, index) => {
+                    const col = index % channelsPerRow;
+                    const row = Math.floor(index / channelsPerRow);
+                    const channelX = plcPosition.x - (channelsPerRow * (channelSize + 4)) / 2 + col * (channelSize + 4) + channelSize/2;
+                    const channelY = plcPosition.y + 10 + row * (channelSize + 4);
                     
-                    throw new Error(`GitHub API error (${saveResponse.status}): ${errorDetails}`);
+                    // Draw channel circle
+                    exportCtx.fillStyle = pin.wireColor;
+                    exportCtx.beginPath();
+                    exportCtx.arc(channelX, channelY, channelSize/2, 0, 2 * Math.PI);
+                    exportCtx.fill();
+                    
+                    exportCtx.strokeStyle = 'white';
+                    exportCtx.lineWidth = 2;
+                    exportCtx.stroke();
+                    
+                    // Draw channel number
+                    exportCtx.fillStyle = 'white';
+                    exportCtx.font = 'bold 10px Arial';
+                    exportCtx.textAlign = 'center';
+                    exportCtx.fillText(pin.number, channelX, channelY + 3);
+                });
+                
+                // Draw pins
+                pins.forEach(pin => {
+                    const color = pin.status === 'good' ? '#10B981' : 
+                                 pin.status === 'bad' ? '#EF4444' : '#F59E0B';
+                    
+                    exportCtx.fillStyle = color;
+                    exportCtx.beginPath();
+                    exportCtx.arc(pin.x, pin.y, 15, 0, 2 * Math.PI);
+                    exportCtx.fill();
+                    
+                    exportCtx.strokeStyle = 'white';
+                    exportCtx.lineWidth = 3;
+                    exportCtx.stroke();
+                    
+                    exportCtx.fillStyle = 'white';
+                    exportCtx.font = 'bold 14px Arial';
+                    exportCtx.textAlign = 'center';
+                    exportCtx.fillText(pin.number, pin.x, pin.y + 5);
+                });
+                
+                // Add to PDF
+                const imgData = exportCanvas.toDataURL('image/jpeg', 0.95);
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                
+                const imgAspectRatio = exportCanvas.width / exportCanvas.height;
+                const pdfAspectRatio = pdfWidth / pdfHeight;
+                
+                let imgWidth, imgHeight, xOffset = 0, yOffset = 0;
+                
+                if (imgAspectRatio > pdfAspectRatio) {
+                    imgWidth = pdfWidth;
+                    imgHeight = pdfWidth / imgAspectRatio;
+                    yOffset = (pdfHeight - imgHeight) / 2;
+                } else {
+                    imgHeight = pdfHeight;
+                    imgWidth = pdfHeight * imgAspectRatio;
+                    xOffset = (pdfWidth - imgWidth) / 2;
                 }
                 
-                showGithubMessage('Data saved to GitHub successfully!', 'success');
+                pdf.addImage(imgData, 'JPEG', xOffset, yOffset, imgWidth, imgHeight);
                 
-            } catch (error) {
-                console.error('Error saving to GitHub:', error);
-                showGithubMessage(`Error saving data: ${error.message}. Check browser console for details.`, 'error');
-            }
+                // Add title and summary
+                pdf.setFontSize(16);
+                pdf.text('Solenoid Test Diagram - ' + projectName, 20, 20);
+                
+                // Add legend
+                let yPos = pdfHeight - 40;
+                pdf.setFontSize(12);
+                pdf.text('Status Legend:', 20, yPos);
+                yPos += 10;
+                
+                const statusCounts = { good: 0, bad: 0, pending: 0 };
+                pins.forEach(pin => statusCounts[pin.status]++);
+                
+                pdf.setFillColor(16, 185, 129);
+                pdf.rect(20, yPos, 5, 5, 'F');
+                pdf.text(`Good: ${statusCounts.good}`, 30, yPos + 4);
+                
+                pdf.setFillColor(239, 68, 68);
+                pdf.rect(70, yPos, 5, 5, 'F');
+                pdf.text(`Bad: ${statusCounts.bad}`, 80, yPos + 4);
+                
+                pdf.setFillColor(245, 158, 11);
+                pdf.rect(120, yPos, 5, 5, 'F');
+                pdf.text(`Pending: ${statusCounts.pending}`, 130, yPos + 4);
+                
+                pdf.save(`${projectName}.pdf`);
+            };
+            
+            img.src = diagramImage.src;
         }
 
-        // Initialize the app
-        initApp();
+        // Window resize handler
+        window.addEventListener('resize', () => {
+            if (diagramImage.complete && diagramImage.src) {
+                setupCanvas();
+            }
+        });
     </script>
 </body>
 </html>
