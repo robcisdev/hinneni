@@ -183,17 +183,23 @@
         </div>
 
         <!-- Upload Area -->
-        <div id="uploadArea" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center mb-6 bg-gray-50 dark:bg-gray-800 transition-colors hover:border-primary">
+        <div id="uploadArea" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center mb-6 bg-gray-50 dark:bg-gray-800">
             <div class="space-y-4">
                 <div class="text-4xl">📁</div>
                 <div>
-                    <p class="text-lg font-medium mb-2">Drop your diagram here or click to upload</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Supports JPG, PNG, GIF • You can also paste from clipboard</p>
+                    <p class="text-lg font-medium mb-2">Choose your diagram image</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Supports JPG, PNG, GIF</p>
                 </div>
-                <input type="file" id="fileInput" accept="image/*" class="hidden">
-                <button onclick="document.getElementById('fileInput').click()" class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors text-base">
-                    Choose File
-                </button>
+                <input type="file" id="fileInput" accept="image/*" style="display: block; margin: 0 auto; padding: 10px; font-size: 16px;">
+                
+                <!-- Analysis Button (hidden initially) -->
+                <div id="analysisSection" style="display: none;" class="mt-4 p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
+                    <p id="selectedFileName" class="text-sm text-gray-600 dark:text-gray-300 mb-3"></p>
+                    <button id="startAnalysis" style="padding: 12px 24px; font-size: 16px; background-color: #10B981; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                        🔍 Start Analysis
+                    </button>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Click to process your diagram and start mapping solenoids</p>
+                </div>
             </div>
         </div>
 
@@ -324,23 +330,14 @@
         const wireCanvas = document.getElementById('wireCanvas');
         const ctx = wireCanvas.getContext('2d');
 
-        // Upload area events
-        uploadArea.addEventListener('click', () => fileInput.click());
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('border-primary');
-        });
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('border-primary');
-        });
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('border-primary');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                handleFileUpload(files[0]);
-            }
-        });
+        // Detect iOS
+        function isIOS() {
+            return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        }
+
+        // Remove all conflicting event handlers - let file input work directly
+        console.log('File input should work directly without additional handlers');
 
         // Clipboard paste support with error handling
         document.addEventListener('paste', (e) => {
@@ -369,11 +366,99 @@
             }
         });
 
+        // Store selected file globally
+        let selectedFile = null;
+
         fileInput.addEventListener('change', (e) => {
+            console.log('File input changed, files:', e.target.files.length);
             if (e.target.files.length > 0) {
-                handleFileUpload(e.target.files[0]);
+                const file = e.target.files[0];
+                console.log('File selected:', file.name, file.type, file.size);
+                
+                // Simple validation
+                if (!file.type.startsWith('image/')) {
+                    alert('Please select a valid image file (JPG, PNG, GIF)');
+                    return;
+                }
+                
+                // Store the file and show analysis section
+                selectedFile = file;
+                
+                // Show analysis section with file name
+                const analysisSection = document.getElementById('analysisSection');
+                const selectedFileName = document.getElementById('selectedFileName');
+                
+                selectedFileName.textContent = `Selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)`;
+                analysisSection.style.display = 'block';
+                
+                console.log('File ready for analysis. Click Start Analysis button to proceed.');
+                
+            } else {
+                console.log('No files selected');
+                // Hide analysis section if no file
+                document.getElementById('analysisSection').style.display = 'none';
+                selectedFile = null;
             }
         });
+
+        // Start Analysis button handler
+        document.getElementById('startAnalysis').addEventListener('click', () => {
+            if (!selectedFile) {
+                alert('No file selected. Please choose an image first.');
+                return;
+            }
+            
+            console.log('Starting analysis of:', selectedFile.name);
+            
+            // Change button text to show processing
+            const startButton = document.getElementById('startAnalysis');
+            startButton.textContent = '⏳ Processing...';
+            startButton.disabled = true;
+            
+            // Create URL and load image
+            const imageUrl = URL.createObjectURL(selectedFile);
+            console.log('Created image URL:', imageUrl);
+            
+            diagramImage.onload = () => {
+                console.log('Image loaded successfully');
+                URL.revokeObjectURL(imageUrl); // Clean up
+                
+                // Hide upload area and show canvas
+                uploadArea.style.display = 'none';
+                canvasArea.classList.remove('hidden');
+                controls.classList.remove('hidden');
+                pinList.classList.remove('hidden');
+                
+                // Setup canvas
+                setTimeout(() => {
+                    setupCanvas();
+                    console.log('Analysis complete! You can now start mapping solenoids.');
+                }, 100);
+            };
+            
+            diagramImage.onerror = () => {
+                console.error('Error loading image');
+                URL.revokeObjectURL(imageUrl);
+                alert('Error loading the image. Please try a different file.');
+                
+                // Reset button
+                startButton.textContent = '🔍 Start Analysis';
+                startButton.disabled = false;
+            };
+            
+            diagramImage.src = imageUrl;
+        });
+
+        // Additional iOS debugging
+        console.log('Device info:', {
+            userAgent: navigator.userAgent,
+            platform: navigator.platform,
+            maxTouchPoints: navigator.maxTouchPoints,
+            isIOS: isIOS()
+        });
+
+        // Simple label approach - no additional event handlers needed
+        console.log('Using label-based file input for better iOS compatibility');
 
         // Error message display function
         function showErrorMessage(message) {
